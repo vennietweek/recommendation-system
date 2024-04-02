@@ -8,7 +8,7 @@ import torch.optim as optim
 import torch.utils.data as data
 import torch.backends.cudnn as cudnn
 
-import model
+import code.models as models
 import evaluate
 import data_utils
 
@@ -58,19 +58,19 @@ if __name__ == "__main__":
 	
 	########################### CREATE MODEL ##############################
 	if args.model == 'MF':
-		model = model.MF(user_num, item_num, args.emb_size, args.dropout)
+		models = models.MF(user_num, item_num, args.emb_size, args.dropout)
 	elif args.model == 'NGCF':
-		model = model.NGCF(user_num, item_num, args.emb_size, 64, args.dropout)
+		models = models.NGCF(user_num, item_num, args.emb_size, 64, args.dropout)
 	
-	model.to(args.device)
+	models.to(args.device)
 	loss_function = nn.BCEWithLogitsLoss() # pointwise loss
-	optimizer = optim.Adam(model.parameters(), lr=args.lr)
+	optimizer = optim.Adam(models.parameters(), lr=args.lr)
 
 	########################### TRAINING ##################################
 	best_recall = 0
 	for epoch in range(args.epochs):
 		# train
-		model.train() # Enable dropout (if have).
+		models.train() # Enable dropout (if have).
 		start_time = time.time()
 		train_loader.dataset.ng_sample()
 
@@ -78,9 +78,9 @@ if __name__ == "__main__":
 		for idx, (user, item, label) in enumerate(train_loader):
 			user, item, label = user.to(args.device), item.to(args.device), label.float().to(args.device)
 
-			model.zero_grad()
+			models.zero_grad()
 
-			prediction = model(user, item)
+			prediction = models(user, item)
 			
 			loss = loss_function(prediction, label)
 
@@ -89,9 +89,9 @@ if __name__ == "__main__":
 		
 		if (epoch+1) % 1 == 0:
 			# evaluation, applied on validation set
-			model.eval()
-			valid_result = evaluate.metrics(args, model, eval(args.top_k), train_dict, valid_dict, valid_dict, item_num, 0)
-			test_result = evaluate.metrics(args, model, eval(args.top_k), train_dict, test_dict, valid_dict, item_num, 1)
+			models.eval()
+			valid_result = evaluate.metrics(args, models, eval(args.top_k), train_dict, valid_dict, valid_dict, item_num, 0)
+			test_result = evaluate.metrics(args, models, eval(args.top_k), train_dict, test_dict, valid_dict, item_num, 1)
 			elapsed_time = time.time() - start_time
 
 			print('---'*18)
@@ -107,7 +107,7 @@ if __name__ == "__main__":
 				# save model to models folder
 				if not os.path.exists(args.model_path):
 					os.mkdir(args.model_path)
-				torch.save(model, '{}{}_{}lr_{}emb_{}.pth'.format(args.model_path, args.model, args.lr, args.emb_size, args.log_name))
+				torch.save(models, '{}{}_{}lr_{}emb_{}.pth'.format(args.model_path, args.model, args.lr, args.emb_size, args.log_name))
 				
 	print('==='*18)
 	print(f"End. Best Epoch is {best_epoch}")

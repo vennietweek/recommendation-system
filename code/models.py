@@ -30,6 +30,39 @@ class MF(nn.Module):
         b_i = self.item_bias(i_id).squeeze()
         return self.dropout((U * I).sum(1) + b_u + b_i + self.mean) # inner product of user and item embeddings + bias terms
 
+class ContentBasedModel(nn.Module):
+    def __init__(self, num_categories, num_visual_features, hidden_dim):
+        super(ContentBasedModel, self).__init__()
+        # User category pathway
+        self.user_category_fc = nn.Linear(num_categories, hidden_dim)
+        
+        # Item category pathway
+        self.item_category_fc = nn.Linear(num_categories, hidden_dim)
+        
+        # User visual pathway
+        self.user_visual_fc = nn.Linear(num_visual_features, hidden_dim)
+        
+        # Item visual pathway
+        self.item_visual_fc = nn.Linear(num_visual_features, hidden_dim)
+        
+        # Combined features for prediction
+        self.combined_fc = nn.Linear(hidden_dim * 4, hidden_dim)  # *4 because we concatenate user+item category+visual features
+        self.output_layer = nn.Linear(hidden_dim, 1)
+
+    def forward(self, user_category, user_visual, item_category, item_visual):
+        # Process features through respective pathways
+        user_category_out = F.relu(self.user_category_fc(user_category))
+        item_category_out = F.relu(self.item_category_fc(item_category))
+        user_visual_out = F.relu(self.user_visual_fc(user_visual))
+        item_visual_out = F.relu(self.item_visual_fc(item_visual))
+        
+        # Combine all pathways
+        combined_features = torch.cat((user_category_out, item_category_out, user_visual_out, item_visual_out), dim=1)
+        
+        # Further processing for final prediction
+        combined_out = F.relu(self.combined_fc(combined_features))
+        output = torch.sigmoid(self.output_layer(combined_out))
+        return output
 
 class NGCF(nn.Module):
     def __init__(self, num_users, num_items, embedding_size=32, hidden_units=64, dropout=0.1):

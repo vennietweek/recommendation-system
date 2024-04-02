@@ -1,5 +1,5 @@
-import numpy as np
 import torch
+import numpy as np
 
 def evaluate(args, model, top_k, train_dict, gt_dict, valid_dict, item_num, flag):
 	recommends = []
@@ -75,3 +75,4 @@ def print_results(loss, valid_result, test_result):
         print("[Test]: Recall: {} NDCG: {} ".format(
                             '-'.join([str(x) for x in test_result[0]]), 
                             '-'.join([str(x) for x in test_result[1]])))
+        

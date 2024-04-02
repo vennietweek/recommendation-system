@@ -2,7 +2,7 @@ import argparse
 import torch
 import torch.backends.cudnn as cudnn
 
-import model
+import code.models as models
 import evaluate
 import data_utils
 
@@ -25,12 +25,12 @@ if __name__ == "__main__":
     user_num, item_num, train_dict, valid_dict, test_dict, train_data, valid_gt, test_gt = data_utils.load_all(train_path, valid_path, test_path)
 
     ########################### LOAD MODEL #################################
-    model = torch.load(f"./models/{args.ckpt}")
-    model.to(args.device)
+    models = torch.load(f"./models/{args.ckpt}")
+    models.to(args.device)
 
     ########################### EVALUATION #####################################
-    model.eval()
-    test_result = evaluate.metrics(args, model, eval(args.top_k), train_dict, test_dict, valid_dict, item_num, 1)
+    models.eval()
+    test_result = evaluate.metrics(args, models, eval(args.top_k), train_dict, test_dict, valid_dict, item_num, 1)
 
     print('---'*18)
     evaluate.print_results(None, None, test_result) 
