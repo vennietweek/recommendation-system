@@ -2,10 +2,10 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-
 class MF(nn.Module):
     def __init__(self, num_users, num_items, embedding_size=32, dropout=0, mean=0):
         super(MF, self).__init__()
+        self.model_name = 'MF'
         self.user_emb = nn.Embedding(num_users, embedding_size)
         self.user_bias = nn.Embedding(num_users, 1) # bias term to add to user side
         self.item_emb = nn.Embedding(num_items, embedding_size) # initialise an item embedding for items in the dataset
@@ -27,26 +27,18 @@ class MF(nn.Module):
         U = self.user_emb(u_id) # looks up user embedding based on userid
         b_u = self.user_bias(u_id).squeeze()
         I = self.item_emb(i_id)
-        b_i = self.item_bias(i_id).squeeze()
+        b_i = self.item_bias(i_id).squeeze() 
         return self.dropout((U * I).sum(1) + b_u + b_i + self.mean) # inner product of user and item embeddings + bias terms
 
 class ContentBasedModel(nn.Module):
     def __init__(self, num_categories, num_visual_features, hidden_dim):
         super(ContentBasedModel, self).__init__()
-        # User category pathway
-        self.user_category_fc = nn.Linear(num_categories, hidden_dim)
-        
-        # Item category pathway
-        self.item_category_fc = nn.Linear(num_categories, hidden_dim)
-        
-        # User visual pathway
-        self.user_visual_fc = nn.Linear(num_visual_features, hidden_dim)
-        
-        # Item visual pathway
-        self.item_visual_fc = nn.Linear(num_visual_features, hidden_dim)
-        
-        # Combined features for prediction
-        self.combined_fc = nn.Linear(hidden_dim * 4, hidden_dim)  # *4 because we concatenate user+item category+visual features
+        self.model_name = 'CBF'
+        self.user_category_fc = nn.Linear(num_categories, hidden_dim) # User category pathway
+        self.user_visual_fc = nn.Linear(num_visual_features, hidden_dim) # User visual pathway
+        self.item_category_fc = nn.Linear(num_categories, hidden_dim) # Item category pathway
+        self.item_visual_fc = nn.Linear(num_visual_features, hidden_dim) # Item visual pathway
+        self.combined_fc = nn.Linear(hidden_dim * 4, hidden_dim) # Combined features for prediction
         self.output_layer = nn.Linear(hidden_dim, 1)
 
     def forward(self, user_category, user_visual, item_category, item_visual):
@@ -64,37 +56,63 @@ class ContentBasedModel(nn.Module):
         output = torch.sigmoid(self.output_layer(combined_out))
         return output
 
-class NGCF(nn.Module):
-    def __init__(self, num_users, num_items, embedding_size=32, hidden_units=64, dropout=0.1):
-        super(NGCF, self).__init__()
-        self.user_emb = nn.Embedding(num_users, embedding_size)
-        self.item_emb = nn.Embedding(num_items, embedding_size)
+class NCF(nn.Module):
+    def __init__(self, num_users, num_items, embedding_size=32, dropout=0.2):
+        super(NCF, self).__init__()
+        self.model_name = 'NCF'
+        self.num_users = num_users
+        self.num_items = num_items
+        self.embedding_size = embedding_size
 
-        self.dropout = nn.Dropout(dropout)
-        self.hidden_layer = nn.Linear(embedding_size * 2, hidden_units)
-        self.output_layer = nn.Linear(hidden_units, 1)
+        # GMF embeddings
+        self.user_embedding_gmf = nn.Embedding(num_users, embedding_size)
+        self.item_embedding_gmf = nn.Embedding(num_items, embedding_size)
 
-        self.initialize_weights()
+        # MLP embeddings
+        self.user_embedding_mlp = nn.Embedding(num_users, embedding_size)
+        self.item_embedding_mlp = nn.Embedding(num_items, embedding_size)
 
-    def initialize_weights(self):
-        nn.init.xavier_uniform_(self.hidden_layer.weight)
-        nn.init.zeros_(self.hidden_layer.bias)
-        nn.init.xavier_uniform_(self.output_layer.weight)
-        nn.init.zeros_(self.output_layer.bias)
+        # MLP layers
+        MLP_modules = []
+        input_size = embedding_size * 2  # user + item embeddings
+        layers=[int(64), int(32), int(16)]
+        for layer_size in layers:
+            MLP_modules.append(nn.Linear(input_size, layer_size))
+            MLP_modules.append(nn.ReLU())
+            MLP_modules.append(nn.Dropout(p=dropout))
+            input_size = layer_size
+        self.MLP_layers = nn.Sequential(*MLP_modules)
 
-    def forward(self, user_ids, item_ids):
-        user_embedding = self.user_emb(user_ids)
-        item_embedding = self.item_emb(item_ids)
+        # Final layer
+        self.output_layer = nn.Linear(embedding_size + layers[-1], 1)
 
-        # Concatenate user and item embeddings
-        embeddings = torch.cat([user_embedding, item_embedding], dim=1)
-        embeddings = self.dropout(embeddings)
+        self._init_weights()
 
-        # Pass through hidden layer
-        hidden_output = F.relu(self.hidden_layer(embeddings))
-        hidden_output = self.dropout(hidden_output)
+    def _init_weights(self):
+        nn.init.normal_(self.user_embedding_gmf.weight, std=0.01)
+        nn.init.normal_(self.item_embedding_gmf.weight, std=0.01)
+        nn.init.normal_(self.user_embedding_mlp.weight, std=0.01)
+        nn.init.normal_(self.item_embedding_mlp.weight, std=0.01)
+        for m in self.MLP_layers:
+            if isinstance(m, nn.Linear):
+                nn.init.xavier_uniform_(m.weight)
+        nn.init.kaiming_uniform_(self.output_layer.weight, a=1, nonlinearity='sigmoid')
 
-        # Output layer
-        output = self.output_layer(hidden_output)
-        return torch.sigmoid(output.squeeze())  # Apply sigmoid activation function
+    def forward(self, user_indices, item_indices):
+        # GMF part
+        user_embedding_gmf = self.user_embedding_gmf(user_indices)
+        item_embedding_gmf = self.item_embedding_gmf(item_indices)
+        gmf_output = user_embedding_gmf * item_embedding_gmf
 
+        # MLP part
+        user_embedding_mlp = self.user_embedding_mlp(user_indices)
+        item_embedding_mlp = self.item_embedding_mlp(item_indices)
+        mlp_input = torch.cat((user_embedding_mlp, item_embedding_mlp), -1)
+        mlp_output = self.MLP_layers(mlp_input)
+
+        # Concatenate GMF and MLP parts
+        concat = torch.cat((gmf_output, mlp_output), -1)
+
+        # Final prediction
+        prediction = torch.sigmoid(self.output_layer(concat))
+        return prediction.squeeze()

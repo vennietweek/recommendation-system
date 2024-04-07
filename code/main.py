@@ -8,8 +8,8 @@ import torch.optim as optim
 import torch.utils.data as data
 import torch.backends.cudnn as cudnn
 
-import code.models as models
-import evaluate
+import models as models
+from evaluate import *
 import data_utils
 
 import random
@@ -31,13 +31,13 @@ if __name__ == "__main__":
 	# take in arguments
 	parser = argparse.ArgumentParser() 
 	parser.add_argument("--data_path", type=str, default="../data/", help="path for dataset")
-	parser.add_argument("--model", type=str, default="MF", help="model name")
+	parser.add_argument("--model", type=str, default="NGCF", help="model name")
 	parser.add_argument("--emb_size", type=int,default=100, help="predictive factors numbers in the model")
 
 	parser.add_argument("--lr", type=float, default=0.001, help="learning rate")
 	parser.add_argument("--dropout", type=float,default=0.0,  help="dropout rate")
 	parser.add_argument("--batch_size", type=int, default=64, help="batch size for training")
-	parser.add_argument("--epochs", type=int, default=20, help="training epoches")
+	parser.add_argument("--epochs", type=int, default=10, help="training epoches")
 	parser.add_argument("--device", type=str, default="cpu")
 
 	parser.add_argument("--top_k", default='[10, 20, 50, 100]', help="compute metrics@top_k")
@@ -57,10 +57,7 @@ if __name__ == "__main__":
 	train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=1)
 	
 	########################### CREATE MODEL ##############################
-	if args.model == 'MF':
-		models = models.MF(user_num, item_num, args.emb_size, args.dropout)
-	elif args.model == 'NGCF':
-		models = models.NGCF(user_num, item_num, args.emb_size, 64, args.dropout)
+	models = models.MF(user_num, item_num, args.emb_size, args.dropout)
 	
 	models.to(args.device)
 	loss_function = nn.BCEWithLogitsLoss() # pointwise loss
@@ -90,13 +87,13 @@ if __name__ == "__main__":
 		if (epoch+1) % 1 == 0:
 			# evaluation, applied on validation set
 			models.eval()
-			valid_result = evaluate.metrics(args, models, eval(args.top_k), train_dict, valid_dict, valid_dict, item_num, 0)
-			test_result = evaluate.metrics(args, models, eval(args.top_k), train_dict, test_dict, valid_dict, item_num, 1)
+			valid_result = metrics(args, models, eval(args.top_k), train_dict, valid_dict, valid_dict, item_num, 0)
+			test_result = metrics(args, models, eval(args.top_k), train_dict, test_dict, valid_dict, item_num, 1)
 			elapsed_time = time.time() - start_time
 
 			print('---'*18)
 			print("The time elapse of epoch {:03d}".format(epoch) + " is: " +  time.strftime("%H: %M: %S", time.gmtime(elapsed_time)))
-			evaluate.print_results(None,valid_result,test_result)
+			print_results(None,valid_result,test_result)
 			print('---'*18)
 
 			if valid_result[0][0] > best_recall: # use best recall@10 on validation set to select the best results
@@ -111,4 +108,4 @@ if __name__ == "__main__":
 				
 	print('==='*18)
 	print(f"End. Best Epoch is {best_epoch}")
-	evaluate.print_results(None,best_results,best_test_results)
+	print_results(None,best_results,best_test_results)

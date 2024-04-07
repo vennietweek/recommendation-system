@@ -151,7 +151,7 @@ def load_data():
 	valid_user_profiles = create_user_profiles(valid_dict, category_features_onehot, visual_features)
 	test_user_profiles = create_user_profiles(test_dict, category_features_onehot, visual_features)
 
-	return user_num, item_num, train_dict, valid_dict, test_dict, train_data, valid_gt, test_gt, category_features_onehot, visual_features, train_user_profiles, valid_user_profiles, test_user_profiles
+	return user_num, item_num, train_dict, valid_dict, test_dict, train_data, valid_gt, test_gt, category_features, category_features_onehot, visual_features, train_user_profiles, valid_user_profiles, test_user_profiles
 
 class CBFData(data.Dataset):
     def __init__(self, user_item_pairs, num_items, category_features, visual_features, user_profiles, train_dict=None, is_training=True):
