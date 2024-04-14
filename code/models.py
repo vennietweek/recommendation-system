@@ -116,3 +116,5 @@ class NCF(nn.Module):
         # Final prediction
         prediction = torch.sigmoid(self.output_layer(concat))
         return prediction.squeeze()
+    
+

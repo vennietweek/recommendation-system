@@ -15,7 +15,8 @@ def train_cbf(model_name, user_num, item_num, train_data, valid_dict, train_dict
     train_dataset = CBFData(user_item_pairs=train_data, num_items=item_num, category_features=category_features_onehot, visual_features=visual_features, user_profiles=user_profiles, train_dict=train_dict, is_training=True)
     train_loader = data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=4)
     
-    model = ContentBasedModel(num_categories, num_visual_features, hidden_dim)
+    if model_name == 'CBF':
+        model = ContentBasedModel(num_categories, num_visual_features, hidden_dim)
 
     model.to(device)
 
@@ -23,7 +24,7 @@ def train_cbf(model_name, user_num, item_num, train_data, valid_dict, train_dict
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 
     best_recall = 0
-    best_f1_score = 0
+    best_f1 = 0
 
     for epoch in range(epochs):
         model.train()
@@ -62,7 +63,7 @@ def train_cbf(model_name, user_num, item_num, train_data, valid_dict, train_dict
 
     print("Training completed.")
     print("Best Average Recall: ", best_recall)
-    print("Best Average F1 score: ", best_f1_score)
+    print("Best Average F1 score: ", best_f1)
 
 
 def train_cf(model_name, user_num, item_num, train_data, valid_dict, train_dict, category_features, emb_size, top_k, epochs, batch_size, lr, device, dropout=0.5):
@@ -80,7 +81,7 @@ def train_cf(model_name, user_num, item_num, train_data, valid_dict, train_dict,
     optimizer = optim.Adam(model.parameters(), lr=lr)
 
     best_recall = 0
-    best_f1_score = 0
+    best_f1 = 0
     total_loss = 0
 
     for epoch in range(epochs):
@@ -117,4 +118,4 @@ def train_cf(model_name, user_num, item_num, train_data, valid_dict, train_dict,
 
     print("Training completed.")
     print("Best Recall: ", best_recall)
-    print("Best F1 score: ", best_f1_score)
+    print("Best F1 score: ", best_f1)
