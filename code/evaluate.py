@@ -138,6 +138,8 @@ def evaluate_cbf(model, top_k, train_dict, gt_dict, user_profiles, category_feat
             interacted_items = train_dict[user_id] if user_id in train_dict else []
             item_ids = [i for i in range(len(category_features_one_hot)) if i not in interacted_items]
 
+            # Remove validation items if not in training
+
             # Get item features
             item_category_tensor = torch.stack([torch.tensor(category_features_one_hot[i], dtype=torch.float32) for i in item_ids])
             item_visual_tensor = torch.stack([torch.tensor(visual_features[i], dtype=torch.float32) for i in item_ids])
